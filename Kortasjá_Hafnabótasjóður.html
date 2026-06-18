@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="is">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kortasjá – Hafnabótasjóður</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1a2332;height:100vh;display:flex;flex-direction:column;}
+
+  header{background:#1e3a5f;padding:10px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-bottom:2px solid #2a5a8f;}
+  header h1{font-size:1.1rem;font-weight:700;color:#fff;white-space:nowrap;}
+  .subtitle{font-size:0.7rem;color:#aac8e8;}
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto;}
+  .seg{display:flex;background:rgba(0,0,0,0.25);border-radius:20px;padding:2px;gap:2px;}
+  .seg button{padding:4px 12px;border:none;background:transparent;color:#aac8e8;border-radius:16px;cursor:pointer;font-size:0.73rem;transition:all 0.15s;white-space:nowrap;}
+  .seg button.active{background:#fff;color:#1e3a5f;font-weight:600;}
+  .seg button:hover:not(.active){color:#fff;}
+  .divider{width:1px;height:24px;background:rgba(255,255,255,0.2);}
+  .defl-toggle{display:flex;align-items:center;gap:6px;cursor:pointer;}
+  .defl-toggle input{display:none;}
+  .slider{width:32px;height:17px;background:rgba(255,255,255,0.2);border-radius:9px;position:relative;transition:background 0.2s;flex-shrink:0;}
+  .slider::after{content:'';position:absolute;width:13px;height:13px;background:#fff;border-radius:50%;top:2px;left:2px;transition:left 0.2s;}
+  input:checked+.slider{background:#4ade80;}
+  input:checked+.slider::after{left:17px;}
+  .defl-toggle span{font-size:0.72rem;color:#cce0ff;white-space:nowrap;}
+
+  .year-row{display:none;gap:5px;align-items:center;padding:5px 18px 6px;background:#162d4a;border-bottom:1px solid #2a5a8f;overflow-x:auto;}
+  .year-row.show{display:flex;}
+  .year-label{font-size:0.7rem;color:#7aabcc;white-space:nowrap;}
+  .yr-btn{padding:3px 11px;border:1.5px solid rgba(255,165,0,0.4);background:transparent;color:#ffd080;border-radius:12px;cursor:pointer;font-size:0.73rem;transition:all 0.15s;white-space:nowrap;}
+  .yr-btn.active{background:#f97316;border-color:#f97316;color:#fff;font-weight:600;}
+  .yr-btn:hover:not(.active){background:rgba(249,115,22,0.2);}
+
+  #map{flex:1;}
+
+  .leaflet-popup-content-wrapper{background:#fff;border:none;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,0.18);padding:0;}
+  .leaflet-popup-tip{background:#fff;}
+  .leaflet-popup-content{margin:0;padding:0;color:#1a2332;width:370px !important;max-height:540px;overflow-y:auto;}
+
+  .popup-header{background:#1e3a5f;padding:14px 16px;border-radius:11px 11px 0 0;position:sticky;top:0;z-index:1;}
+  .popup-header h3{font-size:1rem;color:#fff;margin-bottom:4px;}
+  .popup-main-amt{font-size:1.4rem;font-weight:700;color:#7dd3fc;}
+  .popup-main-amt .unit{font-size:0.67rem;color:#93c5e8;font-weight:400;margin-left:4px;}
+  .popup-sub-amt{font-size:0.78rem;color:#93c5e8;margin-top:3px;}
+  .popup-note{font-size:0.63rem;color:#7ab5d8;margin-top:2px;}
+
+  .popup-body{padding:12px 16px;}
+  .plan-row{display:flex;justify-content:space-between;padding:6px 10px;border-radius:6px;margin:3px 0;font-size:0.8rem;}
+  .plan-row.p2013{background:#f0fdf4;border-left:3px solid #16a34a;}
+  .plan-row.p2015{background:#fefce8;border-left:3px solid #ca8a04;}
+  .plan-row.p2020{background:#eff6ff;border-left:3px solid #3b82f6;}
+  .plan-row.p2026{background:#fff7ed;border-left:3px solid #f97316;}
+  .plan-label{color:#475569;}
+  .plan-amount{color:#1e3a5f;font-weight:700;}
+  .plan-sub{color:#94a3b8;font-size:0.72rem;}
+
+  .proj-header{font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin:8px 0 5px;padding-top:8px;border-top:1px solid #e2e8f0;}
+  .proj-item{padding:7px 10px;margin:4px 0;border-radius:7px;background:#f8fafc;border:1px solid #e2e8f0;}
+  .proj-item.carried{background:#fefce8;border-color:#fde68a;}
+  .proj-name{color:#1e3a5f;font-size:0.77rem;font-weight:500;margin-bottom:4px;line-height:1.3;}
+  .proj-meta{display:flex;justify-content:space-between;align-items:center;gap:6px;}
+  .proj-tag{font-size:0.62rem;padding:2px 6px;border-radius:8px;white-space:nowrap;font-weight:600;}
+  .t2013{background:#dcfce7;color:#15803d;}.t2015{background:#fef9c3;color:#92400e;}
+  .t2020{background:#dbeafe;color:#1d4ed8;}.t2026{background:#ffedd5;color:#c2410c;}
+  .proj-amt{color:#1e3a5f;font-weight:700;font-size:0.8rem;white-space:nowrap;}
+  .lokid-note{font-size:0.62rem;color:#92400e;background:#fef9c3;padding:2px 6px;border-radius:5px;margin-top:4px;}
+  .year-pills{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px;}
+  .year-pill{font-size:0.61rem;padding:1px 5px;border-radius:7px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;}
+
+  .status-badge{font-size:0.62rem;font-weight:700;padding:2px 7px;border-radius:8px;white-space:nowrap;color:#fff;}
+  .st-lokid{background:#16a34a;}
+  .st-verklok{background:#65a30d;}
+  .st-framkv{background:#2563eb;}
+  .st-honnun{background:#d97706;}
+  .st-ekki{background:#94a3b8;}
+  .st-na{background:#cbd5e1;color:#475569;}
+  .proj-status{margin-top:4px;}
+.status-subs{display:flex;flex-direction:column;gap:2px;margin-top:5px;}
+  .status-sub-row{display:flex;justify-content:space-between;align-items:center;font-size:0.68rem;color:#64748b;gap:6px;}
+  .status-note{font-size:0.65rem;color:#92400e;background:#fef9c3;padding:2px 6px;border-radius:5px;margin-top:4px;}
+
+  .more-btn{width:100%;padding:6px;background:#f1f5f9;border:1px solid #e2e8f0;color:#475569;cursor:pointer;font-size:0.73rem;border-radius:6px;margin-top:4px;text-align:center;}
+  .more-btn:hover{background:#e2e8f0;}
+
+  .legend{background:white;border:1px solid #cbd5e1;border-radius:10px;padding:12px 14px;box-shadow:0 2px 8px rgba(0,0,0,0.1);min-width:165px;}
+  .legend h4{font-size:0.77rem;color:#1e3a5f;margin-bottom:7px;font-weight:700;}
+  .legend-item{display:flex;align-items:center;gap:8px;font-size:0.71rem;margin:5px 0;color:#475569;}
+  .leg-circle{border-radius:50%;border:2px solid rgba(0,0,0,0.12);flex-shrink:0;}
+  .legend-note{font-size:0.63rem;color:#94a3b8;margin-top:7px;padding-top:7px;border-top:1px solid #e2e8f0;line-height:1.5;}
+  .hafna-tooltip{background:#1e3a5f !important;border:none !important;color:#fff !important;border-radius:6px !important;font-size:0.75rem !important;padding:5px 9px !important;box-shadow:0 2px 8px rgba(0,0,0,0.2) !important;}
+
+  .year-panel{display:none;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.15);width:300px;max-height:70vh;overflow-y:auto;font-size:0.78rem;}
+  .year-panel.show{display:block;}
+  .year-panel h4{background:#1e3a5f;color:#fff;padding:8px 12px;border-radius:9px 9px 0 0;font-size:0.8rem;display:flex;justify-content:space-between;align-items:center;gap:8px;position:sticky;top:0;}
+  .year-panel .yp-total{font-weight:400;font-size:0.68rem;color:#aac8e8;white-space:nowrap;}
+  .year-panel .yp-list{padding:6px;}
+  .year-panel .yp-item{padding:6px 8px;border-radius:6px;cursor:pointer;border-bottom:1px solid #f1f5f9;}
+  .year-panel .yp-item:hover{background:#f1f5f9;}
+  .year-panel .yp-muni{font-weight:600;color:#1e3a5f;font-size:0.73rem;}
+  .year-panel .yp-name{color:#475569;font-size:0.72rem;margin:2px 0;line-height:1.3;}
+  .year-panel .yp-amt{color:#2563eb;font-weight:700;font-size:0.75rem;}
+  .year-panel .yp-empty{padding:10px;color:#94a3b8;}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>⚓ Kortasjá Hafnabótasjóðs</h1>
+    <div class="subtitle">SGÁ 2013–2016 · 2015–2018 · 2020–2024 · 2026–2030</div>
+  </div>
+  <div class="toolbar">
+    <div class="seg" id="modeSeg">
+      <button class="active" onclick="setMode('grant',this)">Ríkisframlag</button>
+      <button onclick="setMode('cost',this)">Heildarkostnaður</button>
+    </div>
+    <div class="divider"></div>
+    <label class="defl-toggle">
+      <input type="checkbox" id="deflToggle" onchange="drawMarkers()">
+      <div class="slider"></div>
+      <span>Núvirðar (vl. 2026)</span>
+    </label>
+    <div class="divider"></div>
+    <div class="seg" id="planSeg">
+      <button class="active" onclick="setFilter('all',this)">Allar</button>
+      <button onclick="setFilter('SGÁ 2013–2016',this)">2013–16</button>
+      <button onclick="setFilter('SGÁ 2015–2018',this)">2015–18</button>
+      <button onclick="setFilter('SGÁ 2020–2024',this)">2020–24</button>
+      <button onclick="setFilter('SGÁ 2026–2030',this)">2026–30</button>
+    </div>
+    <div class="divider"></div>
+    <label class="defl-toggle">
+      <input type="checkbox" id="statusToggle" onchange="toggleStatusMode()">
+      <div class="slider"></div>
+      <span>Framkvæmdastaða 2026–30</span>
+    </label>
+  </div>
+</header>
+<div class="year-row" id="yearRow"></div>
+<div id="map"></div>
+
+<script>
+const D={"Snæfellsbær":{"lat":64.92,"lon":-23.72,"total_grant":1054.9,"total_cost":2534.0,"by_plan_grant":{"SGÁ 2020–2024":290.81,"SGÁ 2026–2030":455.09,"SGÁ 2015–2018":309.0},"by_plan_cost":{"SGÁ 2020–2024":303.0,"SGÁ 2026–2030":1721.0,"SGÁ 2015–2018":510.0},"by_year_grant":{"2020":127.74,"2021":64.11,"2022":87.34,"2024":11.61,"2026":108.87,"2027":140.32,"2030":162.59,"2029":43.31,"2016":103.7,"2017":110.4,"2018":95.3},"projects":[{"name":"Ólafsvík: Lenging Norðurgarðs, (60 m, 24.500 m3)","grant":5.81,"cost":12.0,"lokid":149.4,"heildar":161.4,"plan":"SGÁ 2020–2024","years":{"2020":5.81}},{"name":"Ólafsvík: Norðurtangi endurbyggður (stálþil 120 m, dýpi 5,5 m)","grant":204.44,"cost":338.0,"lokid":0.0,"heildar":338.0,"plan":"SGÁ 2020–2024","years":{"2020":52.98,"2021":64.11,"2022":87.34}},{"name":"Ólafsvík: Dýpkun innsiglingar í 7,0m. Magn 35 þús. m³","grant":38.71,"cost":80.0,"lokid":0.0,"heildar":80.0,"plan":"SGÁ 2020–2024","years":{"2020":38.71}},{"name":"Rifshöfn: Dýpkun innsiglingar og innan hafnar, dæling og gröftur","grant":30.24,"cost":50.0,"lokid":0.0,"heildar":50.0,"plan":"SGÁ 2020–2024","years":{"2020":30.24}},{"name":"Ólafsvík: Stækkun trébryggju löndunaraðstaða bætt 160m²","grant":11.61,"cost":24.0,"lokid":0.0,"heildar":24.0,"plan":"SGÁ 2020–2024","years":{"2024":11.61}},{"name":"Ólafsvík: Norðurbakki, lenging (stálþil og þekja), 105m í -7m","grant":231.29,"cost":679.0,"lokid":201.0,"heildar":679.0,"plan":"SGÁ 2026–2030","years":{"2026":90.97,"2027":140.32},"status2026":{"subs":[["Stálþilsrekstur","Framkvæmdir"],["Steypt þekja og lagnir","Framkvæmdir"],["Raflagnir","Framkvæmdir"]]}},{"name":"Ólafsvík: Dýpkun innsiglingar í -7 m + innan hafnar i -6m um 80.000 m3","grant":20.81,"cost":235.0,"lokid":0.0,"heildar":235.0,"plan":"SGÁ 2026–2030","years":{"2030":20.81}},{"name":"Ólafsvík: Dýpkun við nýja trébryggju í -3m um 500m3","grant":17.9,"cost":37.0,"lokid":0.0,"heildar":37.0,"plan":"SGÁ 2026–2030","years":{"2026":17.9},"status2026":{"overall":"Lokið"}},{"name":"Rifshöfn: Austurkantur, endurbygging (stálþil og þekja), 120m í -7m","grant":12.1,"cost":450.0,"lokid":0.0,"heildar":450.0,"plan":"SGÁ 2026–2030","years":{"2030":12.1}},{"name":"Rifshöfn: Dýpkun í innsiglingu og renna í -7m um 21.000 m3","grant":82.26,"cost":170.0,"lokid":0.0,"heildar":170.0,"plan":"SGÁ 2026–2030","years":{"2029":30.0,"2030":52.26}},{"name":"Arnarstapi: Endurbygging kerjabryggju (stálþil og þekja), 70m í -3m","grant":90.73,"cost":150.0,"lokid":0.0,"heildar":150.0,"plan":"SGÁ 2026–2030","years":{"2029":13.31,"2030":77.42}},{"name":"Rifshöfn: Endurbygging Norðurkants","grant":292.0,"cost":487.0,"lokid":0.0,"heildar":487.0,"plan":"SGÁ 2015–2018","years":{"2016":86.7,"2017":110.4,"2018":95.3}},{"name":"Arnarstapi: Dýpkun","grant":17.0,"cost":23.0,"lokid":0.0,"heildar":23.0,"plan":"SGÁ 2015–2018","years":{"2016":17.0}}]},"Grundarfjörður":{"lat":64.92,"lon":-23.24,"total_grant":470.03,"total_cost":963.0,"by_plan_grant":{"SGÁ 2020–2024":290.68,"SGÁ 2026–2030":74.35,"SGÁ 2013–2016":5.0,"SGÁ 2015–2018":100.0},"by_plan_cost":{"SGÁ 2020–2024":645.0,"SGÁ 2026–2030":143.0,"SGÁ 2013–2016":8.0,"SGÁ 2015–2018":167.0},"by_year_grant":{"2020":126.993487,"2021":72.351983,"2023":31.768889,"2024":59.565641,"2028":60.48,"2027":13.87,"2016":105.3},"projects":[{"name":"Lenging Norðurgarðs, stálþil, þekja og lagnir (130 m, með 30m gafl  dýpi 10 m)","grant":208.55,"cost":431.0,"lokid":169.0,"heildar":600.0,"plan":"SGÁ 2020–2024","years":{"2020":120.39,"2021":88.16}},{"name":"Lenging Norðurgarðs, brimvörn (7500 m³ kjarni og grjót, dældfylling 30000 m³)","grant":34.35,"cost":71.0,"lokid":39.0,"heildar":110.0,"plan":"SGÁ 2020–2024","years":{"2020":34.35}},{"name":"Norðurgarður: Endurbygging steyptrar kerjabryggju, 90m, dýpi 6m.","grant":111.29,"cost":248.0,"lokid":0.0,"heildar":248.0,"plan":"SGÁ 2020–2024","years":{"2023":38.71,"2024":72.58}},{"name":"Norðurgarður, grjótvörn (40 m) og þekja (900 m2) við Norðurgarð-6m","grant":60.48,"cost":100.0,"lokid":105.0,"heildar":100.0,"plan":"SGÁ 2026–2030","years":{"2028":60.48},"grant_realloc_deduct":63.51},{"name":"Flotbryggja við norðurgarð - 2 x 12 m","grant":13.87,"cost":43.0,"lokid":0.0,"heildar":43.0,"plan":"SGÁ 2026–2030","years":{"2027":13.87}},{"name":"Dýpkun í Suðurhöfn","grant":5.0,"cost":8.0,"lokid":0.0,"heildar":8.0,"plan":"SGÁ 2013–2016","years":{"2016":5.1}},{"name":"Lenging Norðurgarðs","grant":100.0,"cost":167.0,"lokid":0.0,"heildar":167.0,"plan":"SGÁ 2015–2018","years":{"2016":100.2}}]},"Stykkishólmsbær":{"lat":65.07,"lon":-22.73,"total_grant":263.68,"total_cost":498.0,"by_plan_grant":{"SGÁ 2020–2024":76.45,"SGÁ 2026–2030":169.23,"SGÁ 2013–2016":10.0,"SGÁ 2015–2018":8.0},"by_plan_cost":{"SGÁ 2020–2024":158.0,"SGÁ 2026–2030":310.0,"SGÁ 2013–2016":16.0,"SGÁ 2015–2018":14.0},"by_year_grant":{"2021":11.13,"2023":21.77,"2024":43.55,"2027":32.66,"2028":68.83,"2029":67.74,"2016":18.3},"projects":[{"name":"Smábátaaðstaða (flotbryggja 20 m, landstöpull)","grant":11.13,"cost":23.0,"lokid":0.0,"heildar":23.0,"plan":"SGÁ 2020–2024","years":{"2021":11.13}},{"name":"Stykkishöfn: hafskipabryggja lengd um 40m","grant":65.32,"cost":135.0,"lokid":0.0,"heildar":135.0,"plan":"SGÁ 2020–2024","years":{"2023":21.77,"2024":43.55}},{"name":"Hafskipabryggja, endurbætur trébryggju (um 200m2)","grant":96.17,"cost":159.0,"lokid":0.0,"heildar":159.0,"plan":"SGÁ 2026–2030","years":{"2027":32.66,"2028":63.51}},{"name":"Flotbrygggjur, 2 stk 30m og dýpkun","grant":73.06,"cost":151.0,"lokid":0.0,"heildar":151.0,"plan":"SGÁ 2026–2030","years":{"2028":5.32,"2029":67.74}},{"name":"Dýpkun við flotbryggjur","grant":10.0,"cost":16.0,"lokid":0.0,"heildar":16.0,"plan":"SGÁ 2013–2016","years":{"2016":9.9}},{"name":"Stofndýpkun hafnar","grant":8.0,"cost":14.0,"lokid":0.0,"heildar":14.0,"plan":"SGÁ 2015–2018","years":{"2016":8.4}}]},"Vesturbyggð":{"lat":65.59,"lon":-23.95,"total_grant":487.19,"total_cost":1457.4,"by_plan_grant":{"SGÁ 2020–2024":183.59,"SGÁ 2026–2030":109.6,"SGÁ 2013–2016":27.0,"SGÁ 2015–2018":167.0},"by_plan_cost":{"SGÁ 2020–2024":251.4,"SGÁ 2026–2030":899.0,"SGÁ 2013–2016":39.0,"SGÁ 2015–2018":268.0},"by_year_grant":{"2020":57.5,"2021":64.06,"2022":18.0,"2023":16.45,"2024":27.58,"2027":31.45,"2028":72.1,"2030":6.05,"2014":16.1,"2015":27.0,"2016":33.0,"2017":44.3,"2018":73.6},"projects":[{"name":"Bíldudalur: Tenging Stórskipakants og Hafskipakants (stálþil 57 m, dýpi 8 m)","grant":61.81,"cost":127.7,"lokid":41.3,"heildar":169.0,"plan":"SGÁ 2020–2024","years":{"2020":32.0,"2021":29.81}},{"name":"Bíldudalur: Endurbygging Hafskipabryggju (stálþil 99m, 50m dýpi 5m, 49m dýpi 8m)","grant":55.4,"cost":91.7,"lokid":126.3,"heildar":218.0,"plan":"SGÁ 2020–2024","years":{"2020":25.5,"2021":29.9}},{"name":"Brjánslækur: Smábátaaðstaða norðan við höfnina, 140 m hafnargarður og færsla flotbryggju","grant":34.45,"cost":64.0,"lokid":0.0,"heildar":64.0,"plan":"SGÁ 2020–2024","years":{"2022":18.0,"2023":16.45}},{"name":"Patreksfjörður: Ný hafnarvog","grant":3.39,"cost":7.0,"lokid":0.0,"heildar":7.0,"plan":"SGÁ 2020–2024","years":{"2024":3.39}},{"name":"Tálknafjörður: Þekja á Hafskipabryggju","grant":24.19,"cost":40.0,"lokid":0.0,"heildar":40.0,"plan":"SGÁ 2020–2024","years":{"2024":24.19}},{"name":"Tálknafjörður: Hafskipabryggja Rafmagn","grant":4.35,"cost":6.0,"lokid":0.0,"heildar":6.0,"plan":"SGÁ 2020–2024","years":{"2021":4.35}},{"name":"Bíldudalur: Ný trébryggja (harðviður, 90m, -4m dýpi)","grant":87.58,"cost":266.0,"lokid":85.0,"heildar":266.0,"plan":"SGÁ 2026–2030","years":{"2027":31.45,"2028":56.13}},{"name":"Bíldudalur: Stofndýpkun framan við trébryggju","grant":15.97,"cost":33.0,"lokid":0.0,"heildar":33.0,"plan":"SGÁ 2026–2030","years":{"2028":15.97}},{"name":"Tálknafjörður: Endurbygging Hafskipakants, 150 m dýpi -6,0 m (Stálþil og þekja)","grant":6.05,"cost":600.0,"lokid":0.0,"heildar":600.0,"plan":"SGÁ 2026–2030","years":{"2030":6.05}},{"name":"Grjótvörn, flotbryggjur","grant":27.0,"cost":39.0,"lokid":0.0,"heildar":39.0,"plan":"SGÁ 2013–2016","years":{"2014":16.1,"2015":10.7}},{"name":"Lenging flotbryggju; Brjánslækur; Stórskipakant","grant":137.0,"cost":228.0,"lokid":0.0,"heildar":228.0,"plan":"SGÁ 2015–2018","years":{"2015":4.5,"2016":14.5,"2017":44.3,"2018":73.6}},{"name":"Patreksfjörður","grant":30.0,"cost":40.0,"lokid":0.0,"heildar":40.0,"plan":"SGÁ 2015–2018","years":{"2015":11.8,"2016":18.5}}]},"Ísafjarðarbær":{"lat":66.07,"lon":-23.13,"total_grant":1157.52,"total_cost":3772.4,"by_plan_grant":{"SGÁ 2020–2024":603.76,"SGÁ 2026–2030":474.76,"SGÁ 2013–2016":13.0,"SGÁ 2015–2018":66.0},"by_plan_cost":{"SGÁ 2020–2024":190.4,"SGÁ 2026–2030":3464.0,"SGÁ 2013–2016":22.0,"SGÁ 2015–2018":96.0},"by_year_grant":{"2021":188.190055,"2022":120.963525,"2023":101.599362,"2024":152.634605,"2020":40.362839,"2026":128.71,"2029":119.84,"2030":195.97,"2028":30.24,"2016":50.6,"2015":4.3,"2017":24.0},"projects":[{"name":"Ísafjörður: Sundabakki. nýr kantur (Stálþil 300m, dýpi 10m)","grant":406.45,"cost":840.0,"lokid":0.0,"heildar":840.0,"plan":"SGÁ 2020–2024","years":{"2021":144.44,"2022":82.26,"2023":81.48,"2024":98.27}},{"name":"Ísafjörður: Dýpkun (9 m dýpi, 225.000 m³)","grant":94.84,"cost":196.0,"lokid":0.0,"heildar":196.0,"plan":"SGÁ 2020–2024","years":{"2021":51.29,"2022":43.55}},{"name":"Þingeyri: Endurbygging Innri hafnagarðs 1. áfangi 115m, dýpi 5-7m","grant":84.68,"cost":275.0,"lokid":0.0,"heildar":275.0,"plan":"SGÁ 2020–2024","years":{"2023":24.19,"2024":60.48}},{"name":"Endurbygging Vesturkants (stálþil 60 m, dýpi 6 m)","grant":41.98,"cost":69.4,"lokid":68.6,"heildar":138.0,"plan":"SGÁ 2020–2024","years":{"2020":41.98}},{"name":"Ísafjörður: Sundabakki, nýr kantur (stálþil og þekja, 300m, -10m dýpi)","grant":83.23,"cost":1322.0,"lokid":1150.0,"heildar":1322.0,"plan":"SGÁ 2026–2030","years":{"2026":83.23},"status2026":{"subs":[["Stálþilsrekstur","Lokið"],["Steypt þekja og lagnir","Lokið"],["Raflagnir","Lokið"]]}},{"name":"Ísafjörður: Dráttarbátur (40t togkraftur)","grant":46.45,"cost":600.0,"lokid":0.0,"heildar":600.0,"plan":"SGÁ 2026–2030","years":{"2029":10.97,"2030":35.48}},{"name":"Isafjörður: Endurbygging Sundabakka 150 m -8,0 m dýpi elsti hluti","grant":3.23,"cost":500.0,"lokid":0.0,"heildar":500.0,"plan":"SGÁ 2026–2030","years":{"2030":3.23}},{"name":"Þingeyri: Endurbygging innri hafnagarðs, 1. áfangi (stálþil og þekja, 115m, -5/-7m dýpi)","grant":266.13,"cost":468.0,"lokid":40.0,"heildar":468.0,"plan":"SGÁ 2026–2030","years":{"2028":30.24,"2029":108.87,"2030":127.02},"grant_realloc_deduct":24.19},{"name":"Þingeyri: Löndunarkantur, endurbygging (stálþil og þekja, 120m, -5m dýpi)","grant":30.24,"cost":480.0,"lokid":0.0,"heildar":480.0,"plan":"SGÁ 2026–2030","years":{"2030":30.24}},{"name":"Suðureyri: Ný flotbryggja og færsla á grjótgarði (40m)","grant":45.48,"cost":94.0,"lokid":0.0,"heildar":94.0,"plan":"SGÁ 2026–2030","years":{"2026":45.48},"status2026":{"overall":"Framkvæmdir"}},{"name":"Viðhaldsdýpkun innsiglingarrennu","grant":13.0,"cost":22.0,"lokid":0.0,"heildar":22.0,"plan":"SGÁ 2013–2016","years":{"2016":13.3}},{"name":"Suðureyri: Endurbygging Vesturkants","grant":42.0,"cost":56.0,"lokid":0.0,"heildar":56.0,"plan":"SGÁ 2015–2018","years":{"2015":4.3,"2016":37.3}},{"name":"Innsiglingarmerki; Mávagarður","grant":24.0,"cost":40.0,"lokid":0.0,"heildar":40.0,"plan":"SGÁ 2015–2018","years":{"2017":24.0}}]},"Bolungarvíkurkaupstaður":{"lat":66.15,"lon":-23.26,"total_grant":577.49,"total_cost":1388.5,"by_plan_grant":{"SGÁ 2020–2024":161.74,"SGÁ 2026–2030":187.75,"SGÁ 2013–2016":100.0,"SGÁ 2015–2018":128.0},"by_plan_cost":{"SGÁ 2020–2024":274.5,"SGÁ 2026–2030":811.0,"SGÁ 2013–2016":133.0,"SGÁ 2015–2018":170.0},"by_year_grant":{"2021":17.18,"2022":21.17,"2023":94.96,"2024":28.43,"2028":45.48,"2029":96.29,"2030":45.97,"2014":22.8,"2015":76.7,"2016":49.8,"2017":77.8},"projects":[{"name":"Grundargarður sandfangari og endurbygging ( 12.500 m3)","grant":17.18,"cost":35.5,"lokid":0.0,"heildar":35.5,"plan":"SGÁ 2020–2024","years":{"2021":17.18}},{"name":"Lækjarbryggja: Endurbygging trébryggju 112m, dýpi 5m","grant":144.56,"cost":239.0,"lokid":0.0,"heildar":239.0,"plan":"SGÁ 2020–2024","years":{"2022":21.17,"2023":94.96,"2024":28.43}},{"name":"Bolungarvík: Dýpkun og breikkun á innsiglingu","grant":102.1,"cost":211.0,"lokid":0.0,"heildar":211.0,"plan":"SGÁ 2026–2030","years":{"2028":45.48,"2029":56.61}},{"name":"Bolungarvík: Grundargarður - Færsla grjótvarnar, 31.000 m3","grant":78.39,"cost":200.0,"lokid":0.0,"heildar":200.0,"plan":"SGÁ 2026–2030","years":{"2029":39.68,"2030":38.71}},{"name":"Bolungarvík: Gröftur á nýrri hafnarkví 80.000 m3","grant":7.26,"cost":400.0,"lokid":0.0,"heildar":400.0,"plan":"SGÁ 2026–2030","years":{"2030":7.26}},{"name":"Endurbygging stálþils við Brjót; Grundargarður","grant":100.0,"cost":133.0,"lokid":0.0,"heildar":133.0,"plan":"SGÁ 2013–2016","years":{"2014":22.8,"2015":76.7}},{"name":"Endurbygging Brjóts; Grundargarður","grant":128.0,"cost":170.0,"lokid":0.0,"heildar":170.0,"plan":"SGÁ 2015–2018","years":{"2016":49.8,"2017":77.8}}]},"Húnaþing vestra":{"lat":65.81,"lon":-20.31,"total_grant":45.36,"total_cost":75.0,"by_plan_grant":{"SGÁ 2026–2030":45.36},"by_plan_cost":{"SGÁ 2026–2030":75.0},"by_year_grant":{"2026":12.7,"2027":32.66},"projects":[{"name":"Hvammstangi: Suðurgarður, endurbygging trébryggja (furu), 27m í -3m","grant":45.36,"cost":75.0,"lokid":0.0,"heildar":75.0,"plan":"SGÁ 2026–2030","years":{"2026":12.7,"2027":32.66},"status2026":{"overall":"Hönnun og útboð","note":"Útboð haustið 2026"}}]},"Sveitarfélagið Skagafjörður":{"lat":65.56,"lon":-19.56,"total_grant":1182.8,"total_cost":2700.1,"by_plan_grant":{"SGÁ 2020–2024":674.19,"SGÁ 2026–2030":476.61,"SGÁ 2013–2016":22.0,"SGÁ 2015–2018":10.0},"by_plan_cost":{"SGÁ 2020–2024":1141.1,"SGÁ 2026–2030":1515.0,"SGÁ 2013–2016":30.0,"SGÁ 2015–2018":14.0},"by_year_grant":{"2021":153.64,"2022":61.09,"2020":121.57,"2023":65.92,"2024":271.98,"2029":14.52,"2030":58.06,"2026":78.39,"2027":156.77,"2028":168.87,"2016":32.4},"projects":[{"name":"Sauðárkrókur: Endurbygging Efri garðs (stálþil 70 m, dýpi 8 m)","grant":127.02,"cost":210.0,"lokid":0.0,"heildar":210.0,"plan":"SGÁ 2020–2024","years":{"2021":65.93,"2022":61.09}},{"name":"Hofsós: Endurbygging Norðurgarðs (Grjótvörn, 4500 m³, stálþil 60 m, dýpi 4,5 m)","grant":95.56,"cost":158.0,"lokid":0.0,"heildar":158.0,"plan":"SGÁ 2020–2024","years":{"2020":24.8,"2021":70.77}},{"name":"Sauðárkrókur: Upptekt á þvergarði og lenging Norðurgarðs, 30 m","grant":16.94,"cost":35.0,"lokid":0.0,"heildar":35.0,"plan":"SGÁ 2020–2024","years":{"2021":16.94}},{"name":"Sauðárkrókur: Endurbygging Efri garðs 85 m stálþil, dýpi 8m","grant":114.31,"cost":242.0,"lokid":0.0,"heildar":242.0,"plan":"SGÁ 2020–2024","years":{"2023":41.73,"2024":72.58}},{"name":"Sauðárkrókur, Stofndýpkun snúningsrýmis (48.000 m3, dýpi 8,5 m)","grant":25.21,"cost":52.1,"lokid":0.0,"heildar":52.1,"plan":"SGÁ 2020–2024","years":{"2024":25.21}},{"name":"Sauðárkrókur - Lenging sandfangara um 30 m","grant":29.03,"cost":60.0,"lokid":0.0,"heildar":60.0,"plan":"SGÁ 2020–2024","years":{"2024":29.03}},{"name":"Sauðárkrókur - Dráttarbátur, um 15-20 tonna togkraft","grant":96.77,"cost":200.0,"lokid":0.0,"heildar":200.0,"plan":"SGÁ 2020–2024","years":{"2020":96.77}},{"name":"Sauðárkrókur - Nýr grjótgarður utan hafnar","grant":169.35,"cost":350.0,"lokid":0.0,"heildar":350.0,"plan":"SGÁ 2020–2024","years":{"2023":24.19,"2024":145.16}},{"name":"Sauðárkrókur: Útgarður (stálþil og þekja), 160m í -10m","grant":72.58,"cost":600.0,"lokid":86.0,"heildar":600.0,"plan":"SGÁ 2026–2030","years":{"2029":14.52,"2030":58.06}},{"name":"Sauðárkrókur: Útgarður, brimvörn","grant":404.03,"cost":915.0,"lokid":80.0,"heildar":915.0,"plan":"SGÁ 2026–2030","years":{"2026":78.39,"2027":156.77,"2028":168.87},"status2026":{"overall":"Framkvæmdir"}},{"name":"Viðhaldsdýpkun","grant":22.0,"cost":30.0,"lokid":0.0,"heildar":30.0,"plan":"SGÁ 2013–2016","years":{"2016":22.2}},{"name":"Varnargarður smábátahöfn (Sauðárkrókur)","grant":10.0,"cost":14.0,"lokid":0.0,"heildar":14.0,"plan":"SGÁ 2015–2018","years":{"2016":10.2}}]},"Fjallabyggð":{"lat":66.15,"lon":-18.91,"total_grant":511.13,"total_cost":734.0,"by_plan_grant":{"SGÁ 2020–2024":172.98,"SGÁ 2026–2030":18.15,"SGÁ 2015–2018":320.0},"by_plan_cost":{"SGÁ 2020–2024":278.0,"SGÁ 2026–2030":30.0,"SGÁ 2015–2018":426.0},"by_year_grant":{"2021":31.96,"2022":27.22,"2023":49.6,"2024":50.5,"2020":13.71,"2029":18.15,"2016":225.1,"2017":94.6},"projects":[{"name":"Siglufjörður: Innri höfn stálþil 110m, dýpi 4 m","grant":131.85,"cost":218.0,"lokid":0.0,"heildar":218.0,"plan":"SGÁ 2020–2024","years":{"2021":4.54,"2022":27.22,"2023":49.6,"2024":50.5}},{"name":"Ólafsfjörður -Lagfæring á Sandfgangara, tjón","grant":41.13,"cost":60.0,"lokid":0.0,"heildar":60.0,"plan":"SGÁ 2020–2024","years":{"2020":13.71,"2021":27.42}},{"name":"Siglufjörður: Endurbygging grjótvarnar við smábátahöfn","grant":18.15,"cost":30.0,"lokid":0.0,"heildar":30.0,"plan":"SGÁ 2026–2030","years":{"2029":18.15}},{"name":"Siglufjörður: Endurnýjun hafnarbryggju","grant":320.0,"cost":426.0,"lokid":0.0,"heildar":426.0,"plan":"SGÁ 2015–2018","years":{"2016":225.1,"2017":94.6}}]},"Dalvíkurbyggð":{"lat":65.97,"lon":-18.53,"total_grant":473.3,"total_cost":761.0,"by_plan_grant":{"SGÁ 2020–2024":123.39,"SGÁ 2026–2030":122.91,"SGÁ 2015–2018":227.0},"by_plan_cost":{"SGÁ 2020–2024":204.0,"SGÁ 2026–2030":254.0,"SGÁ 2015–2018":303.0},"by_year_grant":{"2022":21.17,"2023":61.21,"2024":41.01,"2027":10.65,"2028":112.26,"2015":4.4,"2016":132.6,"2017":90.0},"projects":[{"name":"Norðurgarður: Endurbygging stálþils 72m dýpi 6m","grant":123.39,"cost":204.0,"lokid":0.0,"heildar":204.0,"plan":"SGÁ 2020–2024","years":{"2022":21.17,"2023":61.21,"2024":41.01}},{"name":"Austurgarður, stofndýpkun (-9m dýpi)","grant":106.94,"cost":221.0,"lokid":0.0,"heildar":221.0,"plan":"SGÁ 2026–2030","years":{"2027":10.65,"2028":96.29}},{"name":"Hauganes: ný 20 m flotbryggja","grant":15.97,"cost":33.0,"lokid":0.0,"heildar":33.0,"plan":"SGÁ 2026–2030","years":{"2028":15.97}},{"name":"Stálþil 145 m, dýpi 9 m","grant":227.0,"cost":303.0,"lokid":0.0,"heildar":303.0,"plan":"SGÁ 2015–2018","years":{"2015":4.4,"2016":132.6,"2017":90.0}}]},"Akureyrarbær":{"lat":65.68,"lon":-18.1,"total_grant":1114.03,"total_cost":2596.0,"by_plan_grant":{"SGÁ 2020–2024":213.51,"SGÁ 2026–2030":189.52,"SGÁ 2013–2016":422.0,"SGÁ 2015–2018":289.0},"by_plan_cost":{"SGÁ 2020–2024":0,"SGÁ 2026–2030":1178.0,"SGÁ 2013–2016":701.0,"SGÁ 2015–2018":717.0},"by_year_grant":{"2020":24.56,"2021":58.06,"2022":78.27,"2023":52.62,"2026":45.97,"2029":95.16,"2030":48.39,"2014":19.8,"2015":159.3,"2016":342.6,"2017":188.8},"projects":[{"name":"Akureyri: Torfunefsbryggja. Endurbygging bryggju (120 m, 9 m dýpi)","grant":160.89,"cost":266.0,"lokid":76.0,"heildar":342.0,"plan":"SGÁ 2020–2024","years":{"2020":24.56,"2021":58.06,"2022":78.27}},{"name":"Flotbryggja Svalbarðseyri 40 m","grant":17.54,"cost":29.0,"lokid":0.0,"heildar":29.0,"plan":"SGÁ 2020–2024","years":{"2023":17.54}},{"name":"Flotbryggja Hrísey 40 m","grant":17.54,"cost":29.0,"lokid":0.0,"heildar":29.0,"plan":"SGÁ 2020–2024","years":{"2023":17.54}},{"name":"Flotbryggja Hjalteyri 40 m","grant":17.54,"cost":29.0,"lokid":0.0,"heildar":29.0,"plan":"SGÁ 2020–2024","years":{"2023":17.54}},{"name":"Akureyri: Torfunefsbryggja_ endurbygging stálþils","grant":41.13,"cost":448.0,"lokid":380.0,"heildar":448.0,"plan":"SGÁ 2026–2030","years":{"2026":41.13},"status2026":{"subs":[["Stálþilsrekstur","Lokið"],["Steypt þekja og lagnir","Lokið"],["Raflagnir","Lokið"]]}},{"name":"Akureyri: Togarabryggja austur, endurbygging og lenging (stálþil og þekja, 160m, -8m dýpi)","grant":80.65,"cost":600.0,"lokid":0.0,"heildar":600.0,"plan":"SGÁ 2026–2030","years":{"2029":32.26,"2030":48.39}},{"name":"Hrísey: Hafskipabryggja, ný ferjurampur","grant":38.71,"cost":80.0,"lokid":0.0,"heildar":80.0,"plan":"SGÁ 2026–2030","years":{"2029":38.71}},{"name":"Grímsey: Ný innsiglingaljós","grant":4.84,"cost":10.0,"lokid":0.0,"heildar":10.0,"plan":"SGÁ 2026–2030","years":{"2026":4.84},"status2026":{"overall":"Ekki hafið"}},{"name":"Grímsey: Brimvarnargarður endurbyggður á 40 m kafla, 600 m3","grant":24.19,"cost":40.0,"lokid":0.0,"heildar":40.0,"plan":"SGÁ 2026–2030","years":{"2029":24.19}},{"name":"Hafnsögubátur","grant":417.0,"cost":695.0,"lokid":0.0,"heildar":695.0,"plan":"SGÁ 2013–2016","years":{"2014":15.0,"2015":131.3,"2016":270.5}},{"name":"Hjalteyri sandfangari","grant":5.0,"cost":6.0,"lokid":0.0,"heildar":6.0,"plan":"SGÁ 2013–2016","years":{"2014":4.8}},{"name":"Hafnsögubátur (Akureyri)","grant":285.0,"cost":712.0,"lokid":0.0,"heildar":712.0,"plan":"SGÁ 2015–2018","years":{"2015":24.0,"2016":72.1,"2017":188.8}},{"name":"Grenivík: Dýpkun","grant":4.0,"cost":5.0,"lokid":0.0,"heildar":5.0,"plan":"SGÁ 2015–2018","years":{"2015":4.0}}]},"Norðurþing":{"lat":66.04,"lon":-17.34,"total_grant":621.27,"total_cost":2780.0,"by_plan_grant":{"SGÁ 2020–2024":50.2,"SGÁ 2026–2030":549.07,"SGÁ 2013–2016":22.0},"by_plan_cost":{"SGÁ 2020–2024":0,"SGÁ 2026–2030":2750.0,"SGÁ 2013–2016":30.0},"by_year_grant":{"2021":9.239416,"2022":11.516154,"2023":13.169894,"2024":16.274536,"2026":98.58,"2027":139.36,"2028":177.45,"2030":108.26,"2029":25.4,"2014":22.5},"projects":[{"name":"Húsavík: Þvergarður lengdur (Stálþil 50 m, dýpi 8 m)","grant":79.84,"cost":165.0,"lokid":0.0,"heildar":165.0,"plan":"SGÁ 2020–2024","years":{"2021":29.52,"2022":24.19,"2023":26.13}},{"name":"Húsavík: Bökugarður viðgerð á þekju ( 900 m2 )","grant":15.12,"cost":25.0,"lokid":0.0,"heildar":25.0,"plan":"SGÁ 2020–2024","years":{"2021":15.12}},{"name":"Húsavík dýpkun vegna Þvergarðs í 8,0m. Magn 20.000m³.  Gröftur","grant":31.45,"cost":65.0,"lokid":0.0,"heildar":65.0,"plan":"SGÁ 2020–2024","years":{"2022":31.45}},{"name":"Húsavík: Endurbygging Naustagarðs, timburbryggja fura (lengd um 60 m, dýpi 3m)","grant":12.1,"cost":110.0,"lokid":0.0,"heildar":110.0,"plan":"SGÁ 2020–2024","years":{"2024":12.1}},{"name":"Raufarhöfn: Endurbygging Hafskipabryggja (endurskoða) stálþil 80m dýpi 7m","grant":104.03,"cost":240.0,"lokid":0.0,"heildar":240.0,"plan":"SGÁ 2020–2024","years":{"2023":37.5,"2024":66.53}},{"name":"Húsavík: Þvergarður, endurbygging (stálþil og þekja, 165m, -6/-8m dýpi)","grant":238.31,"cost":394.0,"lokid":0.0,"heildar":394.0,"plan":"SGÁ 2026–2030","years":{"2026":38.1,"2027":87.1,"2028":113.1},"status2026":{"subs":[["Stálþilsrekstur","Hönnun og útboð"],["Steypt þekja og lagnir","Hönnun og útboð"],["Raflagnir","Hönnun og útboð"]],"note":"útboð haust 2027"}},{"name":"Húsavík: Þvergarður, lenging (stálþil og þekja, 50m, -8m dýpi)","grant":0.0,"cost":165.0,"lokid":165.0,"heildar":165.0,"plan":"SGÁ 2026–2030","years":{}},{"name":"Húsavík: Stofndýpkun og þilskurð v.Þvergarðs (20.000m³, -8m dýpi og 165m, gröftur/fast)","grant":131.61,"cost":337.0,"lokid":65.0,"heildar":337.0,"plan":"SGÁ 2026–2030","years":{"2026":15.0,"2027":52.26,"2028":64.35},"status2026":{"overall":"Framkvæmdir"}},{"name":"Húsavík: Flotbryggja (4mx60m)","grant":45.48,"cost":94.0,"lokid":0.0,"heildar":94.0,"plan":"SGÁ 2026–2030","years":{"2026":45.48},"status2026":{"overall":"Lokið"}},{"name":"Húsavík: Dráttarbátur 30 tonn","grant":4.84,"cost":320.0,"lokid":320.0,"heildar":320.0,"plan":"SGÁ 2026–2030","years":{"2030":4.84},"grant_realloc_deduct":154.84},{"name":"Húsavík: Strandabakkagarður 600 m grjótgarður","grant":82.26,"cost":1200.0,"lokid":0.0,"heildar":1200.0,"plan":"SGÁ 2026–2030","years":{"2029":19.35,"2030":62.9}},{"name":"Raufarhöfn: Endurbygging Hafskipabryggja (endurskoða) stálþil 80m dýpi 7m","grant":46.57,"cost":240.0,"lokid":62.0,"heildar":240.0,"plan":"SGÁ 2026–2030","years":{"2029":6.05,"2030":40.52},"grant_realloc_deduct":37.5},{"name":"Kópasker + Raufarhöfn","grant":22.0,"cost":30.0,"lokid":0.0,"heildar":30.0,"plan":"SGÁ 2013–2016","years":{"2014":22.5}}]},"Langanesbyggð":{"lat":66.17,"lon":-15.32,"total_grant":320.31,"total_cost":735.0,"by_plan_grant":{"SGÁ 2020–2024":162.1,"SGÁ 2026–2030":121.21,"SGÁ 2013–2016":37.0},"by_plan_cost":{"SGÁ 2020–2024":320.0,"SGÁ 2026–2030":366.0,"SGÁ 2013–2016":49.0},"by_year_grant":{"2020":108.87,"2021":53.23,"2026":50.2,"2029":9.68,"2030":38.71,"2028":22.62,"2014":37.0},"projects":[{"name":"Endurbygging Brimvarnargarðs á Bakkafirði (15.000m³)","grant":36.29,"cost":60.0,"lokid":0.0,"heildar":60.0,"plan":"SGÁ 2020–2024","years":{"2020":36.29}},{"name":"Þórshöfn - Dýpkun hafnar, 9.5 m dýpi","grant":125.81,"cost":260.0,"lokid":0.0,"heildar":260.0,"plan":"SGÁ 2020–2024","years":{"2020":72.58,"2021":53.23}},{"name":"Þorshöfn: Hafskipabryggju, endurbygging trébryggju (harðviður) 25m í -3m","grant":50.2,"cost":83.0,"lokid":0.0,"heildar":83.0,"plan":"SGÁ 2026–2030","years":{"2026":50.2},"status2026":{"overall":"Hönnun og útboð"}},{"name":"Þórshöfn: Harðviðarbryggja í smábátahöfn, 90 m,  -3m","grant":48.39,"cost":250.0,"lokid":0.0,"heildar":250.0,"plan":"SGÁ 2026–2030","years":{"2029":9.68,"2030":38.71}},{"name":"Bakkafjörður: Endurbygging á enda hafnargarðs","grant":22.62,"cost":33.0,"lokid":0.0,"heildar":33.0,"plan":"SGÁ 2026–2030","years":{"2028":22.62}},{"name":"Dýpkun á innsiglingu (Þórshöfn)","grant":37.0,"cost":49.0,"lokid":0.0,"heildar":49.0,"plan":"SGÁ 2013–2016","years":{"2014":37.0}}]},"Múlaþing":{"lat":65.26,"lon":-13.82,"total_grant":1354.93,"total_cost":3074.0,"by_plan_grant":{"SGÁ 2020–2024":455.32,"SGÁ 2026–2030":810.61,"SGÁ 2013–2016":51.0,"SGÁ 2015–2018":38.0},"by_plan_cost":{"SGÁ 2020–2024":1004.0,"SGÁ 2026–2030":1945.0,"SGÁ 2013–2016":68.0,"SGÁ 2015–2018":57.0},"by_year_grant":{"2021":153.61,"2022":102.82,"2023":42.34,"2024":96.05,"2020":60.5,"2027":160.28,"2028":140.81,"2029":201.77,"2030":266.62,"2026":41.13,"2014":21.2,"2015":49.6,"2017":4.2,"2018":13.8},"projects":[{"name":"Angorabryggja (Trébryggja 46 m, dýpi 7 m)","grant":75.0,"cost":124.0,"lokid":0.0,"heildar":124.0,"plan":"SGÁ 2020–2024","years":{"2021":38.71,"2022":36.29}},{"name":"Bjólfsbakki Endurbygging stálþil 150m, 7m dýpi","grant":120.97,"cost":444.0,"lokid":0.0,"heildar":444.0,"plan":"SGÁ 2020–2024","years":{"2023":42.34,"2024":78.63}},{"name":"Hafskipabryggja (stálþil 130 m og gafl 12 m, dýpi 6 m)","grant":241.93,"cost":400.0,"lokid":0.0,"heildar":400.0,"plan":"SGÁ 2020–2024","years":{"2020":60.5,"2021":114.9,"2022":66.53}},{"name":"Sýslumannsboði fjarlægður og Lenging Skarfaskersgarðs","grant":17.42,"cost":36.0,"lokid":0.0,"heildar":36.0,"plan":"SGÁ 2020–2024","years":{"2024":17.42}},{"name":"Seyðisfjörður: Lenging Strandabakka (stálþil og þekja, 280m, -10m dýpi)","grant":660.0,"cost":1550.0,"lokid":0.0,"heildar":1550.0,"plan":"SGÁ 2026–2030","years":{"2027":65.32,"2028":140.81,"2029":201.77,"2030":252.1}},{"name":"Djúpivogur: Olíubryggja (harðviður), 50m í -3m","grant":14.52,"cost":170.0,"lokid":0.0,"heildar":170.0,"plan":"SGÁ 2026–2030","years":{"2030":14.52}},{"name":"Borgarfjörður Eystri: Endurbygging Löndunarbryggju (harðviður), 55m í -3m","grant":136.09,"cost":225.0,"lokid":0.0,"heildar":225.0,"plan":"SGÁ 2026–2030","years":{"2026":41.13,"2027":94.96},"status2026":{"overall":"Framkvæmdir"}},{"name":"Borgarfjörður eystri; Breiðdalsvík","grant":38.0,"cost":50.0,"lokid":0.0,"heildar":50.0,"plan":"SGÁ 2013–2016","years":{"2014":21.2,"2015":16.6}},{"name":"Trébryggja (Djúpivogur)","grant":13.0,"cost":18.0,"lokid":0.0,"heildar":18.0,"plan":"SGÁ 2013–2016","years":{"2015":13.1}},{"name":"Djúpivogur: Flotbryggja","grant":20.0,"cost":33.0,"lokid":0.0,"heildar":33.0,"plan":"SGÁ 2015–2018","years":{"2015":19.9}},{"name":"Breiðdalsvík: Lenging flotbryggju","grant":18.0,"cost":24.0,"lokid":0.0,"heildar":24.0,"plan":"SGÁ 2015–2018","years":{"2017":4.2,"2018":13.8}}]},"Hornafjörður":{"lat":64.25,"lon":-15.21,"total_grant":421.78,"total_cost":994.4,"by_plan_grant":{"SGÁ 2020–2024":228.77,"SGÁ 2026–2030":101.01,"SGÁ 2013–2016":72.0,"SGÁ 2015–2018":20.0},"by_plan_cost":{"SGÁ 2020–2024":472.4,"SGÁ 2026–2030":400.0,"SGÁ 2013–2016":96.0,"SGÁ 2015–2018":26.0},"by_year_grant":{"2020":79.74,"2021":43.35,"2023":37.5,"2024":68.17,"2029":33.87,"2030":67.14,"2014":23.3,"2015":24.0,"2016":44.2},"projects":[{"name":"Sandfangari við Einholtskletta (150 m, endurnýtt grjót úr Suðurfjörutanga)","grant":123.1,"cost":254.4,"lokid":0.0,"heildar":254.4,"plan":"SGÁ 2020–2024","years":{"2020":79.74,"2021":43.35}},{"name":"Miklagarðsbryggja endurbyggð (stálþil 78m , dýpi 5 m)","grant":105.67,"cost":218.0,"lokid":0.0,"heildar":218.0,"plan":"SGÁ 2020–2024","years":{"2023":37.5,"2024":68.17}},{"name":"Loðnubryggja - endurbygging","grant":101.01,"cost":400.0,"lokid":0.0,"heildar":400.0,"plan":"SGÁ 2026–2030","years":{"2029":33.87,"2030":67.14}},{"name":"Viðhaldsdýpkun","grant":72.0,"cost":96.0,"lokid":0.0,"heildar":96.0,"plan":"SGÁ 2013–2016","years":{"2014":23.3,"2015":24.0,"2016":24.7}},{"name":"Viðhaldsdýpkun","grant":20.0,"cost":26.0,"lokid":0.0,"heildar":26.0,"plan":"SGÁ 2015–2018","years":{"2016":19.5}}]},"Vestmannaeyjar":{"lat":63.44,"lon":-20.27,"total_grant":782.6,"total_cost":2159.1,"by_plan_grant":{"SGÁ 2020–2024":106.5,"SGÁ 2026–2030":563.1,"SGÁ 2013–2016":82.0,"SGÁ 2015–2018":31.0},"by_plan_cost":{"SGÁ 2020–2024":97.1,"SGÁ 2026–2030":1873.0,"SGÁ 2013–2016":138.0,"SGÁ 2015–2018":51.0},"by_year_grant":{"2020":61.35,"2021":35.47,"2024":9.68,"2029":84.88,"2030":134.68,"2026":278.23,"2027":65.32,"2016":82.5,"2017":30.8},"projects":[{"name":"Skipalyftubryggja endurbygging stálþils um 111 m","grant":96.82,"cost":200.1,"lokid":49.9,"heildar":250.0,"plan":"SGÁ 2020–2024","years":{"2020":61.35,"2021":35.47}},{"name":"Nausthamar, lenging á kanti um 70 m til austurs","grant":9.68,"cost":210.0,"lokid":0.0,"heildar":210.0,"plan":"SGÁ 2020–2024","years":{"2024":9.68}},{"name":"Nausthamar, lenging til austurs (stálþil og þekja, 70m, -7m dýpi)","grant":29.03,"cost":250.0,"lokid":0.0,"heildar":250.0,"plan":"SGÁ 2026–2030","years":{"2029":3.23,"2030":25.81}},{"name":"Hörgaeyjargarðs, stytting og dýpkun (200.000m3)","grant":148.55,"cost":457.0,"lokid":150.0,"heildar":457.0,"plan":"SGÁ 2026–2030","years":{"2026":83.23,"2027":65.32},"status2026":{"overall":"Framkvæmdir"}},{"name":"Ferjubryggja, nýja ferjuaðstaða (stálþil 110m og ekjubrú)","grant":190.52,"cost":600.0,"lokid":0.0,"heildar":600.0,"plan":"SGÁ 2026–2030","years":{"2029":81.65,"2030":108.87}},{"name":"Gjábakki - Nýtt stálþil 120 m , 11 m dýpi","grant":195.0,"cost":566.0,"lokid":163.0,"heildar":566.0,"plan":"SGÁ 2026–2030","years":{"2026":195.0},"status2026":{"subs":[["Stálþilsrekstur","Lokið"],["Steypt þekja og lagnir","Framkvæmdir"],["Raflagnir","Ekki hafið"]]}},{"name":"Dýpkun; Hörgaeyrargarður","grant":82.0,"cost":138.0,"lokid":0.0,"heildar":138.0,"plan":"SGÁ 2013–2016","years":{"2016":82.5}},{"name":"Dýpkun við Hörgeyrargarð","grant":31.0,"cost":51.0,"lokid":0.0,"heildar":51.0,"plan":"SGÁ 2015–2018","years":{"2017":30.8}}]},"Ölfus":{"lat":63.85,"lon":-21.37,"total_grant":3163.3,"total_cost":6168.9,"by_plan_grant":{"SGÁ 2020–2024":2107.21,"SGÁ 2026–2030":552.09,"SGÁ 2013–2016":22.0,"SGÁ 2015–2018":482.0},"by_plan_cost":{"SGÁ 2020–2024":245.9,"SGÁ 2026–2030":5083.0,"SGÁ 2013–2016":37.0,"SGÁ 2015–2018":803.0},"by_year_grant":{"2021":274.12,"2022":723.39,"2023":767.42,"2024":223.37,"2020":118.91,"2026":382.74,"2028":48.39,"2029":120.97,"2015":80.1,"2016":190.6,"2017":221.0,"2018":12.1},"projects":[{"name":"Lenging Suðurvaragarðs um 250 m og snúningur Suðurvararbryggju","grant":1064.52,"cost":2200.0,"lokid":0.0,"heildar":2200.0,"plan":"SGÁ 2020–2024","years":{"2021":91.94,"2022":435.48,"2023":483.87,"2024":53.23}},{"name":"Endurbygging Svartaskersbryggju (200 m , dýpi 8 m)","grant":453.63,"cost":750.0,"lokid":0.0,"heildar":750.0,"plan":"SGÁ 2020–2024","years":{"2021":182.18,"2022":205.65,"2023":65.81}},{"name":"Endurbygging Suðurvarabryggju (200m, dýpi 10m)","grant":371.31,"cost":613.9,"lokid":26.1,"heildar":640.0,"plan":"SGÁ 2020–2024","years":{"2020":118.91,"2022":82.26,"2023":108.87,"2024":61.27}},{"name":"Dýpkun við Suðurvarabryggju","grant":48.39,"cost":300.0,"lokid":0.0,"heildar":300.0,"plan":"SGÁ 2020–2024","years":{"2023":48.39}},{"name":"Upptekt Austurgarðs um 80 m","grant":120.97,"cost":200.0,"lokid":0.0,"heildar":200.0,"plan":"SGÁ 2020–2024","years":{"2023":60.48,"2024":60.48}},{"name":"Dýpkun innsiglingar og snúningsrýmis (laust efni","grant":48.39,"cost":150.0,"lokid":0.0,"heildar":150.0,"plan":"SGÁ 2020–2024","years":{"2024":48.39}},{"name":"Suðurvarargarður, lenging um 250 m og snúningur um 41° og rif tunnu","grant":219.19,"cost":2892.0,"lokid":2439.0,"heildar":2892.0,"plan":"SGÁ 2026–2030","years":{"2026":219.19},"status2026":{"overall":"Verklok og frágangur"}},{"name":"Dýpkun við Suðurvararbryggju (-8m dýpi) og innsiglingu og snúningsrýmis (-9m dýpi)","grant":100.65,"cost":808.0,"lokid":600.0,"heildar":808.0,"plan":"SGÁ 2026–2030","years":{"2026":100.65},"status2026":{"overall":"Verklok og frágangur"}},{"name":"Austurgarður, stytting garðs um 60m","grant":0.0,"cost":129.0,"lokid":129.0,"heildar":129.0,"plan":"SGÁ 2026–2030","years":{}},{"name":"Suðurvararbryggja, endurbygging (stálþil og þekja, 160m, -9,5m dýpi)","grant":62.9,"cost":904.0,"lokid":800.0,"heildar":904.0,"plan":"SGÁ 2026–2030","years":{"2026":62.9},"status2026":{"subs":[["Stálþilsrekstur","Lokið"],["Steypt þekja og lagnir","Lokið"],["Raflagnir","Lokið"]]}},{"name":"Skarfaskersbryggja - Endurbygging á stálþili og stuðkantur, dýpi 8 m.","grant":169.35,"cost":350.0,"lokid":0.0,"heildar":350.0,"plan":"SGÁ 2026–2030","years":{"2028":48.39,"2029":120.97}},{"name":"Viðhaldsdýpkun (Þorlákshöfn)","grant":22.0,"cost":37.0,"lokid":0.0,"heildar":37.0,"plan":"SGÁ 2013–2016","years":{"2015":22.2}},{"name":"Þorlákshöfn: dýpkun, stækkun, Svartasker","grant":482.0,"cost":803.0,"lokid":0.0,"heildar":803.0,"plan":"SGÁ 2015–2018","years":{"2015":57.9,"2016":190.6,"2017":221.0,"2018":12.1}}]},"Grindavíkurkaupstaður":{"lat":63.84,"lon":-22.45,"total_grant":431.26,"total_cost":580.0,"by_plan_grant":{"SGÁ 2020–2024":7.26,"SGÁ 2015–2018":424.0},"by_plan_cost":{"SGÁ 2020–2024":15.0,"SGÁ 2015–2018":565.0},"by_year_grant":{"2020":7.26,"2016":103.0,"2017":203.2,"2018":117.6},"projects":[{"name":"Dýpkun við Miðgarð (dýpi 8m, 5300m², 15500m3)","grant":7.26,"cost":15.0,"lokid":75.4,"heildar":90.4,"plan":"SGÁ 2020–2024","years":{"2020":7.26}},{"name":"Endurbygging Miðgarðs","grant":424.0,"cost":565.0,"lokid":0.0,"heildar":565.0,"plan":"SGÁ 2015–2018","years":{"2016":103.0,"2017":203.2,"2018":117.6}}]},"Reykjanesbær":{"lat":63.99,"lon":-22.56,"total_grant":697.92,"total_cost":2247.2,"by_plan_grant":{"SGÁ 2020–2024":482.92,"SGÁ 2026–2030":180.0,"SGÁ 2015–2018":35.0},"by_plan_cost":{"SGÁ 2020–2024":67.2,"SGÁ 2026–2030":2122.0,"SGÁ 2015–2018":58.0},"by_year_grant":{"2020":61.86,"2021":111.29,"2022":125.9,"2023":91.94,"2024":91.94,"2030":29.03,"2026":150.97,"2017":35.0},"projects":[{"name":"Keflavík - Endurbygging enda brimvarnargarðs vegana tjóns","grant":17.14,"cost":25.0,"lokid":0.0,"heildar":25.0,"plan":"SGÁ 2020–2024","years":{"2020":17.14}},{"name":"Njarðvík - Endurbygging brimvarnargarðs vegna tjóns","grant":17.14,"cost":25.0,"lokid":0.0,"heildar":25.0,"plan":"SGÁ 2020–2024","years":{"2020":17.14}},{"name":"Njarðvík. Dýpkun hafnar , -8 m dýpi","grant":106.45,"cost":220.0,"lokid":0.0,"heildar":220.0,"plan":"SGÁ 2020–2024","years":{"2021":72.58,"2022":33.87}},{"name":"Njarðvík - Nýr grjótgarður sunnan við höfnina","grant":124.45,"cost":257.2,"lokid":92.8,"heildar":350.0,"plan":"SGÁ 2020–2024","years":{"2020":27.58,"2021":38.71,"2022":58.16}},{"name":"Njarðvík - Nýr stálþilskantur (150 m) á Suðurgarði","grant":217.74,"cost":450.0,"lokid":0.0,"heildar":450.0,"plan":"SGÁ 2020–2024","years":{"2022":33.87,"2023":91.94,"2024":91.94}},{"name":"Helguvík:Norðurbakki lenging um 100 m , 10 m dýpi ( stálþil)","grant":24.19,"cost":700.0,"lokid":0.0,"heildar":700.0,"plan":"SGÁ 2026–2030","years":{"2030":24.19}},{"name":"Njarðvík. Dýpkun hafnar (-8m dýpi)","grant":100.65,"cost":648.0,"lokid":440.0,"heildar":648.0,"plan":"SGÁ 2026–2030","years":{"2026":100.65},"status2026":{"overall":"Lokið"}},{"name":"Njarðvík: Nýr grjótgarður sunnan við höfnina","grant":50.32,"cost":574.0,"lokid":470.0,"heildar":574.0,"plan":"SGÁ 2026–2030","years":{"2026":50.32},"status2026":{"overall":"Framkvæmdir"}},{"name":"Njarðvík: Löndunarbryggja, lenging stálþils um 30 m, -3 m dýpi","grant":4.84,"cost":200.0,"lokid":0.0,"heildar":200.0,"plan":"SGÁ 2026–2030","years":{"2030":4.84}},{"name":"Lenging stálþils í Helguvík","grant":35.0,"cost":58.0,"lokid":0.0,"heildar":58.0,"plan":"SGÁ 2015–2018","years":{"2017":35.0}}]},"Sandgerðisbær":{"lat":64.04,"lon":-22.7,"total_grant":350.18,"total_cost":545.0,"by_plan_grant":{"SGÁ 2020–2024":9.07,"SGÁ 2026–2030":188.11,"SGÁ 2013–2016":15.0,"SGÁ 2015–2018":138.0},"by_plan_cost":{"SGÁ 2020–2024":0,"SGÁ 2026–2030":341.0,"SGÁ 2013–2016":20.0,"SGÁ 2015–2018":184.0},"by_year_grant":{"2020":9.07,"2027":38.71,"2028":143.35,"2026":6.05,"2016":50.2,"2015":44.3,"2017":58.7},"projects":[{"name":"Dýpkun við löndunarkrana á Norðurgarði. 300m²","grant":9.07,"cost":15.0,"lokid":0.0,"heildar":15.0,"plan":"SGÁ 2020–2024","years":{"2020":9.07}},{"name":"Endurbygging Suðurbryggju, seinni áfangi (stálþil og þekja, 130m, -6m dýpi)","grant":182.06,"cost":301.0,"lokid":0.0,"heildar":301.0,"plan":"SGÁ 2026–2030","years":{"2027":38.71,"2028":143.35}},{"name":"Syðri grjótvarnargarður og vegur","grant":6.05,"cost":40.0,"lokid":30.0,"heildar":40.0,"plan":"SGÁ 2026–2030","years":{"2026":6.05},"status2026":{"overall":"Framkvæmdir"}},{"name":"Endurbygging Suðurgarðs","grant":15.0,"cost":20.0,"lokid":0.0,"heildar":20.0,"plan":"SGÁ 2013–2016","years":{"2016":15.2}},{"name":"Endurnýjun Suðurbryggju","grant":138.0,"cost":184.0,"lokid":0.0,"heildar":184.0,"plan":"SGÁ 2015–2018","years":{"2015":44.3,"2016":35.0,"2017":58.7}}]},"Reykhólahreppur":{"lat":65.45,"lon":-22.2,"total_grant":755.2,"total_cost":1487.0,"by_plan_grant":{"SGÁ 2020–2024":231.77,"SGÁ 2026–2030":523.43},"by_plan_cost":{"SGÁ 2020–2024":0,"SGÁ 2026–2030":1487.0},"by_year_grant":{"2021":53.71,"2022":69.53,"2023":87.24,"2020":9.68,"2024":11.61,"2026":60.24,"2027":229.35,"2028":23.95,"2029":177.82,"2030":32.06},"projects":[{"name":"Endurbygging stálþilsbryggju (dýpi 5 m, 140 m)","grant":210.48,"cost":290.0,"lokid":0.0,"heildar":290.0,"plan":"SGÁ 2020–2024","years":{"2021":53.71,"2022":69.53,"2023":87.24}},{"name":"Innsiglingaljós fyrir stærri skip, baujur við innsiglingu","grant":9.68,"cost":16.0,"lokid":0.0,"heildar":16.0,"plan":"SGÁ 2020–2024","years":{"2020":9.68}},{"name":"Viðhaldsdýpkun innsiglinga og ljúka dýpkun fremst í rennu innsiglingar","grant":11.61,"cost":16.0,"lokid":0.0,"heildar":16.0,"plan":"SGÁ 2020–2024","years":{"2024":11.61}},{"name":"Reykhólahöfn: Karlsey, endurbygging (stálþil og þekja, 140m, -6m dýpi)","grant":289.6,"cost":936.0,"lokid":537.0,"heildar":936.0,"plan":"SGÁ 2026–2030","years":{"2026":60.24,"2027":229.35},"status2026":{"subs":[["Stálþilsrekstur","Lokið"],["Steypt þekja og lagnir","Lokið"],["Raflagnir","Lokið"]]}},{"name":"Reykhólahöfn: Innri stálþilskantur - Endurbygging stálþils (65 m , -4 m dýpi)","grant":201.77,"cost":278.0,"lokid":0.0,"heildar":278.0,"plan":"SGÁ 2026–2030","years":{"2028":23.95,"2029":177.82}},{"name":"Flatey: Viðbættur ferjubryggja vegna nýja ferju","grant":18.15,"cost":250.0,"lokid":0.0,"heildar":250.0,"plan":"SGÁ 2026–2030","years":{"2030":18.15}},{"name":"Reykhólahöfn: Breikkun og hækkun grjóvarnar á hafnarsvæði, 150 m, 1200 m3","grant":13.91,"cost":23.0,"lokid":0.0,"heildar":23.0,"plan":"SGÁ 2026–2030","years":{"2030":13.91}}]},"Strandabyggð":{"lat":65.7,"lon":-21.69,"total_grant":249.44,"total_cost":334.0,"by_plan_grant":{"SGÁ 2020–2024":54.44,"SGÁ 2013–2016":116.0,"SGÁ 2015–2018":79.0},"by_plan_cost":{"SGÁ 2020–2024":75.0,"SGÁ 2013–2016":154.0,"SGÁ 2015–2018":105.0},"by_year_grant":{"2020":43.55,"2021":10.89,"2014":16.8,"2015":111.8,"2016":29.5,"2018":36.3},"projects":[{"name":"Endurbygging stálþils (50 m, dýpi 6 m)","grant":54.44,"cost":75.0,"lokid":50.0,"heildar":125.0,"plan":"SGÁ 2020–2024","years":{"2020":43.55,"2021":10.89}},{"name":"Norðurfjörður; Drangsnes; Hólmavík","grant":116.0,"cost":154.0,"lokid":0.0,"heildar":154.0,"plan":"SGÁ 2013–2016","years":{"2014":16.8,"2015":85.0,"2016":13.7}},{"name":"Norðurfjörður; Hólmavík","grant":79.0,"cost":105.0,"lokid":0.0,"heildar":105.0,"plan":"SGÁ 2015–2018","years":{"2015":26.8,"2016":15.8,"2018":36.3}}]},"Kaldrananeshreppur":{"lat":65.88,"lon":-21.52,"total_grant":48.39,"total_cost":80.0,"by_plan_grant":{"SGÁ 2026–2030":48.39},"by_plan_cost":{"SGÁ 2026–2030":80.0},"by_year_grant":{"2029":48.39},"projects":[{"name":"Kokkálsvíkurhöfn: Lenging trébryggju, 55m í -3m","grant":48.39,"cost":80.0,"lokid":0.0,"heildar":80.0,"plan":"SGÁ 2026–2030","years":{"2029":48.39}}]},"Dalabyggð":{"lat":65.1,"lon":-21.95,"total_grant":15.0,"total_cost":20.0,"by_plan_grant":{"SGÁ 2015–2018":15.0},"by_plan_cost":{"SGÁ 2015–2018":20.0},"by_year_grant":{"2016":15.0},"projects":[{"name":"Bryggja","grant":15.0,"cost":20.0,"lokid":0.0,"heildar":20.0,"plan":"SGÁ 2015–2018","years":{"2016":15.0}}]},"Vopnafjarðarhreppur":{"lat":65.7506,"lon":-14.8344,"projects":[{"name":"Vopnafjörður: Lenging Löndunarbryggju (stálþil og þekja, 132m, -10m dýpi)","grant":214.35,"cost":607.0,"lokid":164.0,"heildar":607.0,"plan":"SGÁ 2026–2030","years":{"2026":36.29,"2027":78.39,"2028":99.68},"status2026":{"subs":[["Stálþilsrekstur","Framkvæmdir"],["Steypt þekja og lagnir","Framkvæmdir"],["Raflagnir","Framkvæmdir"]]}},{"name":"Vopnafjörður: Stofndýpkun og þilskurður v. Löndunarbryggju (5.000m2 í -10m dýpi, fast efni)","grant":50.32,"cost":304.0,"lokid":200.0,"heildar":304.0,"plan":"SGÁ 2026–2030","years":{"2026":50.32},"status2026":{"overall":"Framkvæmdir"}},{"name":"Vopnafjörður: Norðurgarður, endurbygging og hækkun","grant":27.42,"cost":40.0,"lokid":0.0,"heildar":40.0,"plan":"SGÁ 2026–2030","years":{"2029":27.42}},{"name":"Vopnafjörður: Dýpkun rennu","grant":33.0,"cost":54.0,"lokid":0.0,"heildar":54.0,"plan":"SGÁ 2015–2018","years":{"2015":5.4,"2016":27.3}}],"by_plan_grant":{"SGÁ 2026–2030":292.09,"SGÁ 2015–2018":33.0},"by_plan_cost":{"SGÁ 2026–2030":951.0,"SGÁ 2015–2018":54.0},"by_year_grant":{"2026":86.61,"2027":78.39,"2028":99.68,"2029":27.42,"2015":5.4,"2016":27.3},"total_grant":325.09,"total_cost":1005.0},"Súðavíkurhreppur":{"lat":66.034,"lon":-23.025,"projects":[{"name":"Súðavík: Dýpkun við Norðurgarð (-6,0 m, 12.000 m3)","grant":21.77,"cost":30.0,"lokid":0.0,"heildar":30.0,"plan":"SGÁ 2020–2024","years":{"2020":21.77}},{"name":"Súðavík: Stálþil við Langeyri. 80 m, dýpi 10m","grant":148.19,"cost":245.0,"lokid":28.0,"heildar":273.0,"plan":"SGÁ 2020–2024","years":{"2021":43.85,"2022":65.69,"2023":38.65}},{"name":"Súðavík: Endurbygging Miðgarðs trébryggja (harðviður, 46m, -6m dýpi)","grant":14.52,"cost":106.0,"lokid":0.0,"heildar":106.0,"plan":"SGÁ 2026–2030","years":{"2030":14.52}},{"name":"Súðavík: Bryggja við Langeyri (stálþil og þekja, 80m, -10m dýpi)","grant":95.56,"cost":486.0,"lokid":328.0,"heildar":486.0,"plan":"SGÁ 2026–2030","years":{"2026":95.56},"status2026":{"subs":[["Stálþilsrekstur","Lokið"],["Steypt þekja og lagnir","Framkvæmdir"],["Raflagnir","Ekki hafið"]]}}],"by_plan_grant":{"SGÁ 2020–2024":169.96,"SGÁ 2026–2030":110.08},"by_plan_cost":{"SGÁ 2020–2024":0,"SGÁ 2026–2030":592.0},"by_year_grant":{"2020":21.77,"2021":43.85,"2022":65.69,"2023":38.65,"2030":14.52,"2026":95.56},"total_grant":280.04,"total_cost":592.0},"Sveitarfélagið Skagaströnd":{"lat":65.8285,"lon":-20.2989,"projects":[{"name":"Skagaströnd: Endurbygging Ásgarðs. Stálþil 105m, dýpi 5m","grant":148.19,"cost":245.0,"lokid":0.0,"heildar":245.0,"plan":"SGÁ 2020–2024","years":{"2021":28.79,"2022":64.29,"2023":55.1}},{"name":"Skagaströnd: Endurbygging kants milli ásgarðs og Miðgarðs, trébryggja 48 m","grant":12.1,"cost":80.0,"lokid":0.0,"heildar":80.0,"plan":"SGÁ 2020–2024","years":{"2024":12.1}},{"name":"Skagaströnd: Smábátahöfn - Lenging austurgarðs, 40 m","grant":12.1,"cost":25.0,"lokid":0.0,"heildar":25.0,"plan":"SGÁ 2020–2024","years":{"2021":12.1}},{"name":"Skagaströnd: Ásgarð, endurbygging (stálþil og þekja, 105m, -5m dýpi)","grant":47.18,"cost":393.0,"lokid":315.0,"heildar":393.0,"plan":"SGÁ 2026–2030","years":{"2026":47.18},"status2026":{"subs":[["Stálþilsrekstur","Lokið"],["Steypt þekja og lagnir","Lokið"],["Raflagnir","Framkvæmdir"]]}},{"name":"Skagaströnd: Miðgarður, endurbygging milli Ásgarðs, trébryggja (harðviður, 48m, -5m dýpi)","grant":65.93,"cost":169.0,"lokid":60.0,"heildar":169.0,"plan":"SGÁ 2026–2030","years":{"2026":65.93},"status2026":{"overall":"Framkvæmdir"}},{"name":"Skagaströnd: Miðgarður, endurbygging stálþils 110 m, dýpi -7,0 m","grant":6.05,"cost":600.0,"lokid":0.0,"heildar":600.0,"plan":"SGÁ 2026–2030","years":{"2030":6.05}},{"name":"Skagaströnd: Miðgarður, þilskurður fyrir stálþil, 110 m","grant":24.19,"cost":150.0,"lokid":0.0,"heildar":150.0,"plan":"SGÁ 2026–2030","years":{"2030":24.19}},{"name":"Skagaströnd: Endurbygging Ásgarðs","grant":67.0,"cost":90.0,"lokid":0.0,"heildar":90.0,"plan":"SGÁ 2013–2016","years":{"2014":30.3,"2015":36.8}},{"name":"Skagaströnd: Endurbygging Ásgarðs","grant":97.0,"cost":130.0,"lokid":0.0,"heildar":130.0,"plan":"SGÁ 2015–2018","years":{"2015":2.6,"2016":94.5}}],"by_plan_grant":{"SGÁ 2020–2024":172.39,"SGÁ 2026–2030":143.35,"SGÁ 2013–2016":67.0,"SGÁ 2015–2018":97.0},"by_plan_cost":{"SGÁ 2020–2024":0,"SGÁ 2026–2030":1312.0,"SGÁ 2013–2016":90.0,"SGÁ 2015–2018":130.0},"by_year_grant":{"2021":40.89,"2022":64.29,"2023":55.1,"2024":12.1,"2026":113.11,"2030":30.24,"2014":30.3,"2015":39.4,"2016":94.5},"total_grant":479.74,"total_cost":1532.0}};
+const DEFL={'SGÁ 2013–2016':700/395,'SGÁ 2015–2018':700/421,'SGÁ 2020–2024':700/490,'SGÁ 2026–2030':1};
+const PLAN_YEARS={'SGÁ 2013–2016':[2014,2015,2016],'SGÁ 2015–2018':[2015,2016,2017,2018],'SGÁ 2020–2024':[2020,2021,2022,2023,2024],'SGÁ 2026–2030':[2026,2027,2028,2029,2030]};
+const PCSS={'SGÁ 2013–2016':'p2013','SGÁ 2015–2018':'p2015','SGÁ 2020–2024':'p2020','SGÁ 2026–2030':'p2026'};
+const TCSS={'SGÁ 2013–2016':'t2013','SGÁ 2015–2018':'t2015','SGÁ 2020–2024':'t2020','SGÁ 2026–2030':'t2026'};
+
+const STATUS_CSS={'Lokið':'st-lokid','Verklok og frágangur':'st-verklok','Framkvæmdir':'st-framkv','Hönnun og útboð':'st-honnun','Ekki hafið':'st-ekki'};
+const STATUS_SCORE={'Lokið':100,'Verklok og frágangur':90,'Framkvæmdir':50,'Hönnun og útboð':15,'Ekki hafið':0};
+const STATUS_ORDER=['Lokið','Verklok og frágangur','Framkvæmdir','Hönnun og útboð','Ekki hafið'];
+const STATUS_COLOR_HEX={'Lokið':'#16a34a','Verklok og frágangur':'#65a30d','Framkvæmdir':'#2563eb','Hönnun og útboð':'#d97706','Ekki hafið':'#94a3b8'};
+
+function statusBadge(label){
+  const css=STATUS_CSS[label]||'st-na';
+  return `<span class="status-badge ${css}">${label}</span>`;
+}
+function projStatusScore(p){
+  const s=p.status2026; if(!s)return null;
+  if(s.overall!==undefined)return STATUS_SCORE[s.overall];
+  if(s.subs)return s.subs.reduce((sum,[,st])=>sum+STATUS_SCORE[st],0)/s.subs.length;
+  return null;
+}
+function projStatusHtml(p){
+  const s=p.status2026; if(!s)return '';
+  let h='';
+  if(s.overall!==undefined)h+=statusBadge(s.overall);
+  if(s.subs)h+=`<div class="status-subs">${s.subs.map(([n,st])=>`<div class="status-sub-row"><span>${n}</span>${statusBadge(st)}</div>`).join('')}</div>`;
+  if(s.note)h+=`<div class="status-note">${s.note}</div>`;
+  return h;
+}
+function getMuniStatusScore(name){
+  const d=D[name];let wsum=0,gsum=0;
+  (d.projects||[]).forEach(p=>{
+    if(p.plan!=='SGÁ 2026–2030')return;
+    const sc=projStatusScore(p);
+    if(sc===null)return;
+    const g=p.grant||0.001;
+    wsum+=sc*g;gsum+=g;
+  });
+  return gsum>0?wsum/gsum:null;
+}
+function statusColor(score){
+  if(score===null)return'#cbd5e1';
+  if(score>=95)return'#16a34a';
+  if(score>=70)return'#65a30d';
+  if(score>=35)return'#2563eb';
+  if(score>5)return'#d97706';
+  return'#94a3b8';
+}
+
+let mode='grant',filter='all',yr='all',statusMode=false,markers=[],markersByName={};
+
+const map=L.map('map',{center:[65,-19],zoom:6});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  {attribution:'&copy; OpenStreetMap &copy; CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
+
+function isDefl(){return document.getElementById('deflToggle').checked;}
+function adj(v,plan){return isDefl()?v*(DEFL[plan]||1):v;}
+
+function getMuniAmt(name){
+  const d=D[name]; let tot=0;
+  if(filter==='all'){
+    const src=mode==='grant'?d.by_plan_grant:d.by_plan_cost;
+    Object.entries(src).forEach(([plan,v])=>{tot+=adj(v,plan);});
+  } else if(yr==='all'){
+    const v=(mode==='grant'?d.by_plan_grant:d.by_plan_cost)[filter]||0;
+    tot=adj(v,filter);
+  } else {
+    d.projects.forEach(p=>{
+      if(p.plan!==filter)return;
+      const g=p.years[String(yr)]||0;
+      if(g>0)tot+=adj(g,p.plan);
+    });
+  }
+  return tot;
+}
+
+function getRadius(v,max){
+  if(max<=0)return 5;
+  return Math.min(20,Math.max(5,5+Math.sqrt(v/max)*15));
+}
+function getColor(v,max){
+  if(max<=0)return'#6366f1';
+  const r=v/max;
+  if(r>0.85)return'#dc2626';if(r>0.5)return'#ea580c';if(r>0.25)return'#d97706';
+  if(r>0.10)return'#16a34a';if(r>0.03)return'#2563eb';return'#6366f1';
+}
+
+function buildPopup(name){
+  const d=D[name],mainAmt=getMuniAmt(name);
+  const isG=mode==='grant',isYr=yr!=='all';
+
+  let subLine='';
+  if(!isYr){
+    if(isG){
+      const ct=Object.entries(d.by_plan_cost).reduce((s,[pl,v])=>{
+        if(filter!=='all'&&pl!==filter)return s; return s+adj(v,pl);
+      },0);
+      subLine=`<div class="popup-sub-amt">Heildarkostnaður: ${Math.round(ct).toLocaleString('is-IS')} m.kr. m.vsk</div>`;
+    } else {
+      const gt=Object.entries(d.by_plan_grant).reduce((s,[pl,v])=>{
+        if(filter!=='all'&&pl!==filter)return s; return s+adj(v,pl);
+      },0);
+      subLine=`<div class="popup-sub-amt">Ríkisframlag: ${Math.round(gt).toLocaleString('is-IS')} m.kr. á.vsk</div>`;
+    }
+  }
+
+  const deflNote=isDefl()?'<div class="popup-note">Núvirt í verðlag 2026 (ÍSL NVV Hagstofa)</div>':'';
+  const costNote=!isYr&&!isG?'<div class="popup-note" style="margin-bottom:6px">Heildark. 2026–2030: heildar framkvæmdakostnaður · Lokið-upphæðir eru dregnar frá eldri áætlunum til að koma í veg fyrir tvítalningu</div>':'';
+  const hasRealloc=d.projects.some(p=>p.grant_realloc_deduct);
+  const grantNote=!isYr&&isG&&hasRealloc?'<div class="popup-note" style="margin-bottom:6px">Óráðstafaðar fjárheimildir frá SGÁ 2020–2024 sem fluttar eru til síðari ára í SGÁ 2026–2030 eru dregnar frá ríkisframlagi 2020–2024 til að koma í veg fyrir tvítalningu</div>':'';
+
+  let planRows='';
+  Object.keys(d.by_plan_grant).forEach(plan=>{
+    if(filter!=='all'&&plan!==filter)return;
+    const gv=adj(d.by_plan_grant[plan]||0,plan);
+    const cv=adj(d.by_plan_cost[plan]||0,plan);
+    const mainV=isG?gv:cv, subV=isG?cv:gv;
+    const subLbl=isG?'heildark.':'ríkisframl.';
+    planRows+=`<div class="plan-row ${PCSS[plan]}">
+      <span class="plan-label">${plan}</span>
+      <span class="plan-amount">${Math.round(mainV).toLocaleString('is-IS')} m.kr.
+        <span class="plan-sub">(${subLbl}: ${Math.round(subV).toLocaleString('is-IS')})</span>
+      </span></div>`;
+  });
+
+  const projs=d.projects.filter(p=>{
+    if(filter!=='all'&&p.plan!==filter)return false;
+    if(isYr)return(p.years[String(yr)]||0)>0;
+    return true;
+  });
+
+  const rProj=p=>{
+    const rawAmt=isYr?(p.years[String(yr)]||0):(isG?p.grant:p.cost);
+    const dispAmt=adj(rawAmt,p.plan);
+    const hasLokid=p.lokid>0;
+    const lokidNote=hasLokid&&!isYr&&!isG?
+      `<div class="lokid-note">⚠ Lokið úr fyrri áætlun: ${Math.round(adj(p.lokid,p.plan)).toLocaleString('is-IS')} m.kr. · Heildar-kostn. (upprunalegt): ${Math.round(adj(p.heildar,p.plan)).toLocaleString('is-IS')} m.kr.</div>`:
+      (hasLokid&&!isYr&&isG?`<div class="lokid-note">⚠ Lokið úr fyrri áætlun: ${Math.round(adj(p.lokid,p.plan)).toLocaleString('is-IS')} m.kr.</div>`:'');
+    const reallocNote=p.grant_realloc_deduct&&!isYr&&isG?
+      `<div class="lokid-note">↺ Óráðstöfuð fjárheimild frá SGÁ 2020–2024 (${Math.round(adj(p.grant_realloc_deduct,p.plan)).toLocaleString('is-IS')} m.kr.) flutt og dregin frá ríkisframlagi 2020–2024</div>`:'';
+    const pills=!isYr?Object.entries(p.years).map(([y,v])=>`<span class="year-pill">${y}: ${Math.round(adj(v,p.plan))} m.</span>`).join(''):'';
+    const statusHtml=(statusMode&&p.status2026)?`<div class="proj-status">${projStatusHtml(p)}</div>`:'';
+    return `<div class="proj-item${hasLokid?' carried':''}">
+      <div class="proj-name">${p.name}</div>
+      <div class="proj-meta"><span class="proj-tag ${TCSS[p.plan]}">${p.plan}</span>
+        <span class="proj-amt">${Math.round(dispAmt)} m.kr.</span></div>
+      ${statusHtml}${lokidNote}${reallocNote}${pills?`<div class="year-pills">${pills}</div>`:''}
+    </div>`;
+  };
+
+  const N=5,key=name.replace(/[^a-z0-9]/gi,'_');
+  let ph=projs.slice(0,N).map(rProj).join(''),mh='';
+  if(projs.length>N){
+    const rest=projs.slice(N).map(rProj).join('');
+    mh=`<div id="r_${key}" style="display:none">${rest}</div>
+    <button class="more-btn" onclick="var e=document.getElementById('r_${key}');e.style.display=e.style.display?'':'none';this.textContent=e.style.display?'▼ Sýna ${projs.length-N} til viðbótar':'▲ Fela'">▼ Sýna ${projs.length-N} til viðbótar</button>`;
+  }
+
+  const ul=isG?'ríkisframlag, á.vsk':'heildarkostnaður, m.vsk';
+  const yl=isYr?` · ${yr}`:'';
+  return `<div>
+    <div class="popup-header">
+      <h3>${name}</h3>
+      <div class="popup-main-amt">${Math.round(mainAmt).toLocaleString('is-IS')} m.kr.<span class="unit">${ul}${yl}</span></div>
+      ${subLine}${deflNote}
+    </div>
+    <div class="popup-body">
+      <div style="margin-bottom:8px">${planRows}</div>
+      ${costNote}${grantNote}
+      <div class="proj-header">Verkefni (${projs.length})</div>
+      ${ph}${mh}
+    </div></div>`;
+}
+
+function drawMarkers(){
+  markers.forEach(m=>m.remove());markers=[];markersByName={};
+  const amounts=[];
+  Object.keys(D).forEach(name=>{
+    const amt=getMuniAmt(name);
+    if(amt>0)amounts.push([name,amt]);
+  });
+  const max=amounts.reduce((m,[,a])=>Math.max(m,a),0);
+  amounts.forEach(([name,amt])=>{
+    let fillColor,tooltip;
+    if(statusMode){
+      const score=getMuniStatusScore(name);
+      fillColor=statusColor(score);
+      tooltip=`<strong>${name}</strong><br>${score===null?'Engin staða skráð':'Framkvæmdastaða: '+Math.round(score)+'%'}`;
+    } else {
+      fillColor=getColor(amt,max);
+      const ml=mode==='grant'?'ríkisframlag':'heildark.';
+      tooltip=`<strong>${name}</strong><br>${Math.round(amt).toLocaleString('is-IS')} m.kr.${isDefl()?'†':''} (${ml})`;
+    }
+    const c=L.circleMarker([D[name].lat,D[name].lon],{
+      radius:getRadius(amt,max),fillColor,color:'#fff',weight:1.5,fillOpacity:0.85
+    }).addTo(map);
+    c.bindPopup(()=>buildPopup(name),{maxWidth:400});
+    c.bindTooltip(tooltip,{className:'hafna-tooltip',sticky:true});
+    markers.push(c);
+    markersByName[name]=c;
+  });
+  updateLegend(max);
+  buildYearList();
+}
+
+function toggleStatusMode(){
+  statusMode=document.getElementById('statusToggle').checked;
+  if(statusMode){
+    filter='SGÁ 2026–2030';yr='all';
+    const planBtns=document.querySelectorAll('#planSeg button');
+    planBtns.forEach(b=>b.classList.remove('active'));
+    planBtns[4].classList.add('active');
+    document.getElementById('yearRow').className='year-row';
+  }
+  drawMarkers();
+}
+
+function setMode(m,btn){
+  mode=m;
+  document.querySelectorAll('#modeSeg button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('legTitle').textContent=m==='grant'?'Ríkisframlag (m.kr.)':'Heildarkostnaður (m.kr.)';
+  drawMarkers();
+}
+
+function setFilter(f,btn){
+  filter=f;yr='all';
+  document.querySelectorAll('#planSeg button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const row=document.getElementById('yearRow');
+  if(f!=='all'&&PLAN_YEARS[f]){
+    row.className='year-row show';
+    row.innerHTML='<span class="year-label">Ár:</span>';
+    const ab=document.createElement('button');ab.className='yr-btn active';ab.textContent='Öll ár';
+    ab.onclick=function(){setYear('all',this);};row.appendChild(ab);
+    PLAN_YEARS[f].forEach(y=>{
+      const b=document.createElement('button');b.className='yr-btn';b.textContent=y;
+      b.onclick=function(){setYear(y,this);};row.appendChild(b);
+    });
+  } else {row.className='year-row';}
+  drawMarkers();
+}
+
+function setYear(y,btn){
+  yr=y;
+  document.querySelectorAll('.yr-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');drawMarkers();
+}
+
+let legendDiv;
+const legend=L.control({position:'bottomleft'});
+legend.onAdd=function(){
+  legendDiv=L.DomUtil.create('div','legend');
+  return legendDiv;
+};
+legend.addTo(map);
+
+function updateLegend(max){
+  if(!legendDiv)return;
+  if(statusMode){
+    legendDiv.innerHTML=`<h4>Framkvæmdastaða 2026–2030</h4>
+      ${STATUS_ORDER.map(s=>`<div class="legend-item"><div class="leg-circle" style="width:16px;height:16px;background:${STATUS_COLOR_HEX[s]}"></div>${s}</div>`).join('')}
+      <div class="legend-item"><div class="leg-circle" style="width:16px;height:16px;background:#cbd5e1"></div>Engin staða skráð</div>
+      <div class="legend-note">Litur sveitarfélags: vegið meðaltal stöðu verkefna á SGÁ 2026–2030 (vegið eftir ríkisframlagi)</div>`;
+    return;
+  }
+  const fmt=v=>Math.round(v).toLocaleString('is-IS');
+  const title=mode==='grant'?'Ríkisframlag (m.kr.)':'Heildarkostnaður (m.kr.)';
+  if(max<=0){
+    legendDiv.innerHTML=`<h4 id="legTitle">${title}</h4><div class="legend-note">† = upphæð núvirt í verðlag 2026 (ÍSL NVV Hagstofa)</div>`;
+    return;
+  }
+  const t1=max*0.85,t2=max*0.5,t3=max*0.25,t4=max*0.10,t5=max*0.03;
+  legendDiv.innerHTML=`<h4 id="legTitle">${title}</h4>
+    <div class="legend-item"><div class="leg-circle" style="width:22px;height:22px;background:#dc2626"></div>yfir ${fmt(t1)}</div>
+    <div class="legend-item"><div class="leg-circle" style="width:18px;height:18px;background:#ea580c"></div>${fmt(t2)}–${fmt(t1)}</div>
+    <div class="legend-item"><div class="leg-circle" style="width:15px;height:15px;background:#d97706"></div>${fmt(t3)}–${fmt(t2)}</div>
+    <div class="legend-item"><div class="leg-circle" style="width:12px;height:12px;background:#16a34a"></div>${fmt(t4)}–${fmt(t3)}</div>
+    <div class="legend-item"><div class="leg-circle" style="width:9px;height:9px;background:#2563eb"></div>${fmt(t5)}–${fmt(t4)}</div>
+    <div class="legend-item"><div class="leg-circle" style="width:6px;height:6px;background:#6366f1"></div>undir ${fmt(t5)}</div>
+    <div class="legend-note">† = upphæð núvirt í verðlag 2026 (ÍSL NVV Hagstofa)</div>`;
+}
+
+let yearPanelDiv;
+const yearPanelCtrl=L.control({position:'topright'});
+yearPanelCtrl.onAdd=function(){
+  yearPanelDiv=L.DomUtil.create('div','year-panel');
+  L.DomEvent.disableClickPropagation(yearPanelDiv);
+  L.DomEvent.disableScrollPropagation(yearPanelDiv);
+  return yearPanelDiv;
+};
+yearPanelCtrl.addTo(map);
+
+function focusMuni(name){
+  const d=D[name];if(!d)return;
+  map.setView([d.lat,d.lon],Math.max(map.getZoom(),9));
+  if(markersByName[name])markersByName[name].openPopup();
+}
+
+function buildYearList(){
+  if(!yearPanelDiv)return;
+  if(yr==='all'){yearPanelDiv.classList.remove('show');yearPanelDiv.innerHTML='';return;}
+  const items=[];
+  Object.entries(D).forEach(([name,d])=>{
+    (d.projects||[]).forEach(p=>{
+      if(filter!=='all'&&p.plan!==filter)return;
+      const v=p.years[String(yr)]||0;
+      if(v>0)items.push({muni:name,proj:p,amt:adj(v,p.plan)});
+    });
+  });
+  items.sort((a,b)=>b.amt-a.amt);
+  const total=items.reduce((s,it)=>s+it.amt,0);
+  const dl=isDefl()?'†':'';
+  const rows=items.map(it=>`<div class="yp-item" onclick="focusMuni('${it.muni.replace(/'/g,"\\'")}')">
+    <div class="yp-muni">${it.muni}</div>
+    <div class="yp-name">${it.proj.name}</div>
+    <div class="yp-amt">${Math.round(it.amt).toLocaleString('is-IS')} m.kr.${dl}</div>
+  </div>`).join('');
+  yearPanelDiv.innerHTML=`<h4>Verkefni ${yr}<span class="yp-total">${items.length} stk · ${Math.round(total).toLocaleString('is-IS')} m.kr.${dl}</span></h4>
+    <div class="yp-list">${rows||'<div class="yp-empty">Engin verkefni þetta ár</div>'}</div>`;
+  yearPanelDiv.classList.add('show');
+}
+
+drawMarkers();
+</script>
+</body>
+</html>
