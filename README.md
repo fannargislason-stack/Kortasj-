@@ -1,0 +1,2 @@
+# Kortasj-
+Kortasjá samgönguáæltlun
